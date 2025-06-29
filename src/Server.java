@@ -25,7 +25,7 @@ public class Server {
             while (true) { // 使用循环可以接受多个客户端连接
                 clientSocket = serverSocket.accept();
                 System.out.println("Client Connected: " + clientSocket.getInetAddress());
-
+                boolean flag = false;
                 try {
                     // 为每个客户端创建输入输出流
                     dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
@@ -34,9 +34,10 @@ public class Server {
                     reader = new BufferedReader(new InputStreamReader(dataInputStream));
 
                     String message;
+
                     while ((message = reader.readLine()) != null) {
                         System.out.println("来自客户端的消息：" + message);
-
+                        flag=true;
                         if ("Bye".equalsIgnoreCase(message)) { // 使用equalsIgnoreCase更健壮
                             printWriter.println("再见");
                             //break;
@@ -48,23 +49,36 @@ public class Server {
                         }else if(message.startsWith("D")){
                             String content = message.substring(1);
                             String name= OUT_user(content);
-                            if(name!=null){;
+                            if(name!=null){
                             printWriter.println(""+name);
                             System.out.println("登录成功");
+                            }else {
+                                printWriter.println("NULL");
                             }
                         }else if(message.startsWith("M")){
                             String content = message.substring(1);
                             iouser_message sendmessage = new iouser_message();
-                            sendmessage.writemessage(content) ;
+                            printWriter.println(sendmessage.writemessage(content));
+                        }else if(message.startsWith("R")){
+                            String content = message.substring(1);
+                            iouser_message readmessage = new iouser_message();
+                            printWriter.println(readmessage.readmessage(content));
+                        }else if(message.startsWith("A")){
+                            String content = message.substring(1);
+                            adFriend addfriend = new adFriend();
+                            printWriter.println(addfriend.addFriend(content));
                         }
-                        printWriter.println("服务器已接收");
+                        printWriter.println("NULL");
                     }
                 } catch (IOException e) {
                     System.err.println("处理客户端连接时出错: " + e.getMessage());
                 } finally {
                     // 关闭当前客户端的资源
+                    if(flag==false){
+                        continue;
+                    }
                     closeResources();
-                    System.out.println("Client disconnected");
+                    System.out.println("Servey Client disconnected");
                 }
             }
         } catch (IOException e) {
