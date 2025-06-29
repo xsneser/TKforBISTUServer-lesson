@@ -78,34 +78,39 @@ public class Server {
                     // 打印接收到的消息（带客户端地址）
                     System.out.println("来自客户端 " + clientSocket.getInetAddress() + " 的消息：" + message);
 
-                    // 处理不同类型的客户端请求
-                    if ("Bye".equalsIgnoreCase(message)) {
-                        // 处理断开连接请求
+                    if ("Bye".equalsIgnoreCase(message)) { // 使用equalsIgnoreCase更健壮
                         printWriter.println("再见");
-                        break; // 退出循环，结束此客户端连接
-                    } else if (message.startsWith("I")) {
-                        // 处理用户注册请求
-                        // 格式: I|用户名|密码
-                        String content = message.substring(1); // 移除前缀'I'
-                        int id = userRepository.in_user(content); // 调用用户仓库
-                        printWriter.println("" + id); // 返回用户ID
-                    } else if (message.startsWith("D")) {
-                        // 处理用户登录请求
-                        // 格式: D|用户名|密码
-                        String content = message.substring(1); // 移除前缀'D'
-                        String name = userRepository.OUT_user(content); // 调用用户仓库验证
-                        if (name != null) {
-                            // 登录成功
-                            printWriter.println("" + name);
-                            System.out.println(clientSocket.getInetAddress() + " 登录成功");
-                        } else {
-                            // 登录失败
-                            printWriter.println("登录失败");
-                        }
-                    }
+                        //break;
+                    }else if(message.startsWith("I")){
+                        String content = message.substring(1);
+                        UserRepository as = new UserRepository();
+                        int id =as.in_user(content);
+                        printWriter.println(""+id);
 
-                    // 通用响应，确认消息已接收
-                    printWriter.println("服务器已接收");
+                    }else if(message.startsWith("D")){
+                        String content = message.substring(1);
+                        UserRepository as = new UserRepository();
+                        String name= as.OUT_user(content);
+                        if(name!=null){
+                            printWriter.println(""+name);
+                            System.out.println("登录成功");
+                        }else {
+                            printWriter.println("NULL");
+                        }
+                    }else if(message.startsWith("M")){
+                        String content = message.substring(1);
+                        iouser_message sendmessage = new iouser_message();
+                        printWriter.println(sendmessage.writemessage(content));
+                    }else if(message.startsWith("R")){
+                        String content = message.substring(1);
+                        iouser_message readmessage = new iouser_message();
+                        printWriter.println(readmessage.readmessage(content));
+                    }else if(message.startsWith("A")){
+                        String content = message.substring(1);
+                        adFriend addfriend = new adFriend();
+                        printWriter.println(addfriend.addFriend(content));
+                    }
+                    printWriter.println("NULL");
                 }
             } catch (IOException e) {
                 // 处理通信异常
