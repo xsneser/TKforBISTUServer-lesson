@@ -29,6 +29,7 @@ public class adFriend {
             boolean userHasFriend = isFriend(userFile, friendid);
 
             // 处理不一致的情况（修复数据）
+            /*
             if (friendHasUser != userHasFriend) {
                 System.out.println("检测到好友关系不一致，正在修复...");
 
@@ -50,7 +51,7 @@ public class adFriend {
                         return "fixed_and_true";
                     }
                 }
-            }
+            }*/
 
             // 如果已经是双向好友关系，则不添加
             if (friendHasUser && userHasFriend) {

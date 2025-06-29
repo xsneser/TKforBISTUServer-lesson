@@ -66,61 +66,87 @@ public class Server {
          */
         @Override
         public void run() {
-            // 使用try-with-resources确保自动关闭所有流
-            try (DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
-                 DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
-                 PrintWriter printWriter = new PrintWriter(dataOutputStream, true); // 自动刷新输出
-                 BufferedReader reader = new BufferedReader(new InputStreamReader(dataInputStream))) {
+                // 使用try-with-resources确保自动关闭所有流
+                try (DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
+                     DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+                     PrintWriter printWriter = new PrintWriter(dataOutputStream, true); // 自动刷新输出
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(dataInputStream))) {
 
-                String message;
-                // 持续读取客户端消息
-                while ((message = reader.readLine()) != null) {
+                    String message = reader.readLine();
+                    // 持续读取客户端消息
+                    //while () {
                     // 打印接收到的消息（带客户端地址）
                     System.out.println("来自客户端 " + clientSocket.getInetAddress() + " 的消息：" + message);
+                    int a=0;
+                    while (true) {
+                        if (message == null) {
+                            System.out.println("重读来自客户端的消息：" + message);
+                            a=a+1;
+                            if(a>10) {
+
+                                System.err.println("重读超时");
+                                break;
+                            }
+                        }else {
+                            break;
+                        }
+                    }
 
                     if ("Bye".equalsIgnoreCase(message)) { // 使用equalsIgnoreCase更健壮
                         printWriter.println("再见");
                         //break;
-                    }else if(message.startsWith("I")){
+                    } else if (message.startsWith("I")) {
                         String content = message.substring(1);
                         UserRepository as = new UserRepository();
-                        int id =as.in_user(content);
-                        printWriter.println(""+id);
+                        int id = as.in_user(content);
+                        printWriter.println("" + id);
 
-                    }else if(message.startsWith("D")){
+                    } else if (message.startsWith("D")) {
                         String content = message.substring(1);
                         UserRepository as = new UserRepository();
-                        String name= as.OUT_user(content);
-                        if(name!=null){
-                            printWriter.println(""+name);
+                        String name = as.OUT_user(content);
+                        if (name != null) {
+                            printWriter.println("" + name);
                             System.out.println("登录成功");
-                        }else {
+                        } else {
                             printWriter.println("NULL");
                         }
-                    }else if(message.startsWith("M")){
+                    } else if (message.startsWith("M")) {
                         String content = message.substring(1);
                         iouser_message sendmessage = new iouser_message();
                         printWriter.println(sendmessage.writemessage(content));
-                    }else if(message.startsWith("R")){
+
+                    } else if (message.startsWith("R")) {
                         String content = message.substring(1);
                         iouser_message readmessage = new iouser_message();
-                        printWriter.println(readmessage.readmessage(content));
-                    }else if(message.startsWith("A")){
+                        String A = readmessage.readmessage(content);
+                        System.err.println("返回客户端消息: " + A);
+                        printWriter.println(A);
+                    } else if (message.startsWith("A")) {
                         String content = message.substring(1);
                         adFriend addfriend = new adFriend();
                         printWriter.println(addfriend.addFriend(content));
+                    } else if (message.startsWith("J")) {
+                        String content = message.substring(1);
+                        iouser_job_message sendjobmessage = new iouser_job_message();
+                        printWriter.println(sendjobmessage.writemessage(content));
+                    } else if (message.startsWith("O")) {
+                        String content = message.substring(1);
+                        iouser_job_message readjobid = new iouser_job_message();
+                        printWriter.println(readjobid.readmessage(content));
                     }
-                    printWriter.println("NULL");
+                    //printWriter.println("NULL");
+
+                } catch (IOException e) {
+                    // 处理通信异常
+                    System.err.println("处理客户端连接时出错: " + e.getMessage());
+                } finally {
+                    // 确保关闭客户端资源
+                    //message为空则重新执行
+                    closeClientResources();
+                    System.out.println("客户端断开: " + clientSocket.getInetAddress());
                 }
-            } catch (IOException e) {
-                // 处理通信异常
-                System.err.println("处理客户端连接时出错: " + e.getMessage());
-            } finally {
-                // 确保关闭客户端资源
-                closeClientResources();
-                System.out.println("客户端断开: " + clientSocket.getInetAddress());
             }
-        }
 
         /**
          * 关闭客户端资源
