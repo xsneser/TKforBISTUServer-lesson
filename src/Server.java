@@ -1,222 +1,160 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-
+/**
+ * 多线程服务器实现
+ * 使用线程池处理客户端连接，支持高并发
+ */
 public class Server {
-    private int serverPort = 29898; // 变量名改为小写开头的驼峰命名法
-    private ServerSocket serverSocket = null;
-    private Socket clientSocket = null; // 变量名改为更具描述性的clientSocket
-    private DataInputStream dataInputStream = null;
-    private DataOutputStream dataOutputStream = null;
-    private PrintWriter printWriter = null;
-    private BufferedReader reader = null; // 变量名改为小写开头
+    // 服务器配置参数
+    private int serverPort = 29898; // 服务器监听端口
+    private ServerSocket serverSocket = null; // 服务器套接字
+    private final ExecutorService threadPool = Executors.newCachedThreadPool(); // 线程池（核心组件）
+    private UserRepository userRepository = new UserRepository(); // 用户数据存储库
 
+    /**
+     * 服务器构造函数
+     * 初始化服务器并开始监听客户端连接
+     */
     public Server() {
         try {
+            // 创建服务器套接字并绑定端口
             serverSocket = new ServerSocket(serverPort);
             System.out.println("Server Started on port " + serverPort);
 
-            while (true) { // 使用循环可以接受多个客户端连接
-                clientSocket = serverSocket.accept();
+            // 主循环：持续接受客户端连接
+            while (true) {
+                // 阻塞等待客户端连接
+                Socket clientSocket = serverSocket.accept();
                 System.out.println("Client Connected: " + clientSocket.getInetAddress());
 
-                try {
-                    // 为每个客户端创建输入输出流
-                    dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
-                    dataInputStream = new DataInputStream(clientSocket.getInputStream());
-                    printWriter = new PrintWriter(dataOutputStream, true); // 启用自动刷新
-                    reader = new BufferedReader(new InputStreamReader(dataInputStream));
-
-                    String message;
-                    while ((message = reader.readLine()) != null) {
-                        System.out.println("来自客户端的消息：" + message);
-
-                        if ("Bye".equalsIgnoreCase(message)) { // 使用equalsIgnoreCase更健壮
-                            printWriter.println("再见");
-                            //break;
-                        }else if(message.startsWith("I")){
-                            String content = message.substring(1);
-                            int id =in_user(content);
-                            printWriter.println(""+id);
-
-                        }else if(message.startsWith("D")){
-                            String content = message.substring(1);
-                            String name= OUT_user(content);
-                            if(name!=null){;
-                            printWriter.println(""+name);
-                            System.out.println("登录成功");
-                            }
-                        }else if(message.startsWith("M")){
-                            String content = message.substring(1);
-                            iouser_message sendmessage = new iouser_message();
-                            sendmessage.writemessage(content) ;
-                        }
-                        printWriter.println("服务器已接收");
-                    }
-                } catch (IOException e) {
-                    System.err.println("处理客户端连接时出错: " + e.getMessage());
-                } finally {
-                    // 关闭当前客户端的资源
-                    closeResources();
-                    System.out.println("Client disconnected");
-                }
+                // 为每个客户端创建处理任务并提交到线程池
+                // 这是实现多线程处理的关键步骤
+                threadPool.execute(new ClientHandler(clientSocket));
             }
         } catch (IOException e) {
+            // 服务器启动失败处理
             System.err.println("服务器启动失败: " + e.getMessage());
         } finally {
-            // 关闭服务器套接字
-            try {
-                if (serverSocket != null && !serverSocket.isClosed()) {
-                    serverSocket.close();
-                    System.out.println("Server Stopped");
+            // 确保服务器关闭时释放资源
+            shutdownServer();
+        }
+    }
+
+        /**
+         * 客户端处理程序（内部类）
+         * 每个客户端连接都会创建一个此类的实例
+         * 在独立线程中运行
+         */
+        private class ClientHandler implements Runnable {
+            private final Socket clientSocket; // 客户端套接字
+
+            /**
+             * 构造函数
+             * @param socket 客户端套接字
+             */
+            public ClientHandler(Socket socket) {
+                this.clientSocket = socket;
+            }
+
+        /**
+         * 客户端处理线程的主逻辑
+         * 负责与客户端通信
+         */
+        @Override
+        public void run() {
+            // 使用try-with-resources确保自动关闭所有流
+            try (DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
+                 DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+                 PrintWriter printWriter = new PrintWriter(dataOutputStream, true); // 自动刷新输出
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(dataInputStream))) {
+
+                String message;
+                // 持续读取客户端消息
+                while ((message = reader.readLine()) != null) {
+                    // 打印接收到的消息（带客户端地址）
+                    System.out.println("来自客户端 " + clientSocket.getInetAddress() + " 的消息：" + message);
+
+                    // 处理不同类型的客户端请求
+                    if ("Bye".equalsIgnoreCase(message)) {
+                        // 处理断开连接请求
+                        printWriter.println("再见");
+                        break; // 退出循环，结束此客户端连接
+                    } else if (message.startsWith("I")) {
+                        // 处理用户注册请求
+                        // 格式: I|用户名|密码
+                        String content = message.substring(1); // 移除前缀'I'
+                        int id = userRepository.in_user(content); // 调用用户仓库
+                        printWriter.println("" + id); // 返回用户ID
+                    } else if (message.startsWith("D")) {
+                        // 处理用户登录请求
+                        // 格式: D|用户名|密码
+                        String content = message.substring(1); // 移除前缀'D'
+                        String name = userRepository.OUT_user(content); // 调用用户仓库验证
+                        if (name != null) {
+                            // 登录成功
+                            printWriter.println("" + name);
+                            System.out.println(clientSocket.getInetAddress() + " 登录成功");
+                        } else {
+                            // 登录失败
+                            printWriter.println("登录失败");
+                        }
+                    }
+
+                    // 通用响应，确认消息已接收
+                    printWriter.println("服务器已接收");
                 }
             } catch (IOException e) {
-                System.err.println("关闭服务器套接字失败: " + e.getMessage());
+                // 处理通信异常
+                System.err.println("处理客户端连接时出错: " + e.getMessage());
+            } finally {
+                // 确保关闭客户端资源
+                closeClientResources();
+                System.out.println("客户端断开: " + clientSocket.getInetAddress());
             }
         }
-    }
 
-    private void closeResources() {
-        // 按相反顺序关闭资源
-        try {
-            if (reader != null) reader.close();
-            if (printWriter != null) printWriter.close();
-            if (dataOutputStream != null) dataOutputStream.close();
-            if (dataInputStream != null) dataInputStream.close();
-            if (clientSocket != null && !clientSocket.isClosed()) clientSocket.close();
-        } catch (IOException e) {
-            System.err.println("关闭资源失败: " + e.getMessage());
-        }
-    }
-
-    public static void main(String[] args) {
-        new Server(); // 创建服务器实例
-    }
-    private synchronized int in_user(String message) throws IOException {
-        int id = readFirstNumber();
-        PrintWriter printWriter = null;
-        try {
-            // 创建FileWriter并追加到文件
-            FileWriter fileWriter = new FileWriter("src/user_information.txt", true);
-            // 包装FileWriter为PrintWriter以便使用println方法
-            printWriter = new PrintWriter(fileWriter);
-
-            // 直接写入单个消息
-            printWriter.println(id+1+"|"+message);
-            return id+1;
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            // 确保资源被关闭
-            if (printWriter != null) {
-                printWriter.close();
-            }
-        }
-        System.out.println("写入用户表："+message);
-        return -1;
-    }
-
-    private int readFirstNumber() throws IOException {
-        Path filePath = Paths.get("src/user_information.txt");
-        List<String> lines = Files.readAllLines(filePath);
-
-        if (lines.isEmpty()) {
-            throw new IOException("文件为空");
-        }
-
-        int firstNumber = Integer.parseInt(lines.get(0).trim());
-        int updatedNumber = firstNumber + 1;
-        lines.set(0, String.valueOf(updatedNumber));
-
-        Files.write(filePath, lines);
-        return firstNumber;
-    }
-
-    private synchronized String OUT_user(String str) throws IOException {
-        String[] parts = str.split("\\|");
-        // 获取|前的部分
-        String numberPart = parts[0];
-        // 转换为int
-        int result = Integer.parseInt(numberPart)+1;
-        String namepassword = readline(result);
-        System.out.println("namepassword:" + namepassword);
-        String name = getfirstLeftPipe(namepassword);
-        String password = getContentAfterLastPipe(namepassword);
-        if(namepassword !=null){
-            System.out.println("password:" + password +"p2 "+getContentAfterLastPipe(str)+"name"+name);
-            if(password.equals(getContentAfterLastPipe(str))){
-                return  name;
-            }
-        }
-        System.out.println("登录失败");
-        return null;
-    }
-    private  String readline(int targetLine) {
-        String filePath = "src/user_information.txt";
-        //int targetLine = 3; // 假设读取第3行
-
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(
-                        new FileInputStream(filePath),
-                        StandardCharsets.UTF_8
-                )
-        )) {
-            String line;
-            int currentLine = 1;
-
-            // 逐行读取，直到目标行或文件结束
-            while ((line = reader.readLine()) != null) {
-                if (currentLine == targetLine) {
-                    return  getContentAfterLeftPipe(line);
+        /**
+         * 关闭客户端资源
+         */
+        private void closeClientResources() {
+            try {
+                if (clientSocket != null && !clientSocket.isClosed()) {
+                    clientSocket.close(); // 关闭客户端套接字
                 }
-                currentLine++;
+            } catch (IOException e) {
+                System.err.println("关闭客户端套接字失败: " + e.getMessage());
             }
+        }
+    }
 
-            if (currentLine < targetLine) {
-                System.out.println("文件行数不足，只有" + (currentLine - 1) + "行");
+    /**
+     * 关闭服务器
+     * 释放所有资源
+     */
+    private void shutdownServer() {
+        try {
+            // 1. 关闭线程池（不再接受新任务）
+            threadPool.shutdown();
+
+            // 2. 关闭服务器套接字（停止接受新连接）
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+                System.out.println("Server Stopped");
             }
         } catch (IOException e) {
-            System.out.println("读取文件时出错：" + e.getMessage());
+            System.err.println("关闭服务器套接字失败: " + e.getMessage());
         }
-        return null;
     }
 
-    public static String getContentAfterLastPipe(String input) {
-        if (input == null) {
-            return null;
-        }
-        int lastIndex = input.lastIndexOf('|');
-        if (lastIndex == -1) {
-            return input; // 若没有|，则返回原字符串
-        }
-
-        return input.substring(lastIndex + 1);
-    }
-//第一个左边的
-    public static String getContentAfterLeftPipe(String originalString)  {
-        int pipeIndex = originalString.indexOf('|');
-
-        if (pipeIndex != -1) {
-            String result = originalString.substring(pipeIndex + 1);
-            return result;
-        } else {
-            System.out.println("字符串中没有找到 '|'");
-        }
-        return null;
-    }
-    //第一个左边的
-    public static String getfirstLeftPipe(String str) {
-        String[] parts = str.split("\\|");
-        // 获取|前的部分
-        String numberPart = parts[0];
-
-        return numberPart;
+    /**
+     * 服务器入口点
+     * @param args 命令行参数（未使用）
+     */
+    public static void main(String[] args) {
+        new Server(); // 启动服务器实例
     }
 }
