@@ -39,7 +39,7 @@ public class Server {
 
                         if ("Bye".equalsIgnoreCase(message)) { // 使用equalsIgnoreCase更健壮
                             printWriter.println("再见");
-                            break;
+                            //break;
                         }else if(message.startsWith("I")){
                             String content = message.substring(1);
                             int id =in_user(content);
@@ -52,7 +52,10 @@ public class Server {
                             printWriter.println(""+name);
                             System.out.println("登录成功");
                             }
-
+                        }else if(message.startsWith("M")){
+                            String content = message.substring(1);
+                            iouser_message sendmessage = new iouser_message();
+                            sendmessage.writemessage(content) ;
                         }
                         printWriter.println("服务器已接收");
                     }
@@ -196,7 +199,7 @@ public class Server {
 
         return input.substring(lastIndex + 1);
     }
-
+//第一个左边的
     public static String getContentAfterLeftPipe(String originalString)  {
         int pipeIndex = originalString.indexOf('|');
 
@@ -208,11 +211,12 @@ public class Server {
         }
         return null;
     }
+    //第一个左边的
     public static String getfirstLeftPipe(String str) {
         String[] parts = str.split("\\|");
         // 获取|前的部分
         String numberPart = parts[0];
-        // 转换为int
+
         return numberPart;
     }
 }
