@@ -2,22 +2,14 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Scanner;
 
 
 public class iouser_message {
 
-    public String writemessage(String sendmessage) throws IOException {
+    public String writemessage(String sendmessage) {
         String reserveid = getfirstLeftPipe(sendmessage);
         String messageSendid = getContentAfterRightPipe(sendmessage);
-        String Sendid = getContentAfterRightPipe(messageSendid);
-        System.out.println("left：" + reserveid + " right：" + messageSendid+"sendid:"+Sendid);
-        File directory1 = new File("src/user_friend/");
-        File friendFile = new File(directory1, reserveid + ".txt");
-        if (!isFriend(friendFile,Sendid)){
-            System.out.println(reserveid+"不是好友");
-            return "false";
-        }
+        System.out.println("left：" + reserveid + " right：" + messageSendid);
 
         // 获取当前系统时间
         LocalDateTime currentTime = LocalDateTime.now();
@@ -42,7 +34,6 @@ public class iouser_message {
             try (FileWriter writer = new FileWriter(file, true)) {
                 writer.write("[" + timestamp + "] "+messageSendid);
                 writer.write(System.lineSeparator()); // 添加换行符
-                System.out.println("成功写入: " + "[" + timestamp + "] "+messageSendid);
                 return "true";
             }
         } catch (IOException e) {
@@ -51,7 +42,7 @@ public class iouser_message {
 
         return "false";
     }
-    public String readmessage(String id) throws IOException {
+    public String readmessage(String id) {
         File file = new File("src/user/" + id + ".txt");
 
         // 检查文件是否存在或是否为空
@@ -101,21 +92,5 @@ public class iouser_message {
         return null;
     }
 
-    private boolean isFriend(File friendFile, String targetId) throws IOException {
-        if (!friendFile.exists()) {
-            return false; // 文件不存在，说明还没有好友
-        }
-
-        try (Scanner scanner = new Scanner(friendFile)) {
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine().trim();
-                if (line.equals(targetId)) {
-                    return true; // 找到匹配的好友ID
-                }
-            }
-        }
-
-        return false; // 未找到匹配的好友ID
-    }
 
 }
